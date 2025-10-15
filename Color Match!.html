@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Match Mania</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS for Game Aesthetics */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212; /* Deep dark background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .game-area {
+            width: 100%;
+            max-width: 550px;
+            background-color: #1f1f1f;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.2), 0 0 15px rgba(255, 0, 100, 0.5);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 3px solid #ff006e;
+        }
+
+        .header-text {
+            font-family: 'Press Start 2P', cursive;
+            color: #00ffc8;
+            text-shadow: 0 0 8px #00ffc8;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .status-panel {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-family: 'Press Start 2P', cursive;
+            color: #f7f7f7;
+            font-size: 0.8rem;
+        }
+
+        .target-display {
+            padding: 15px 20px;
+            border-radius: 8px;
+            background-color: #333333;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+            color: #fff;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            aspect-ratio: 1 / 1; /* Keep the grid perfectly square */
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .tile {
+            height: 100%;
+            background-color: #2c3e50;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.1s ease-out;
+            border: 3px solid #f7f7f7;
+            box-shadow: 0 5px 0 0 rgba(0, 0, 0, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .tile:active {
+            transform: translateY(2px);
+            box-shadow: 0 3px 0 0 rgba(0, 0, 0, 0.4);
+        }
+
+        /* Modal Styling */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: #2c0738;
+            border: 5px solid #ffcc00;
+            color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+            box-shadow: 0 0 30px rgba(255, 204, 0, 0.7);
+            max-width: 80%;
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            background-color: #ff006e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 5px #c70049;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+
+        .modal-btn:hover {
+            background-color: #ff337e;
+            box-shadow: 0 3px #c70049;
+            transform: translateY(2px);
+        }
+
+        /* Responsive font sizing */
+        @media (max-width: 400px) {
+            .status-panel {
+                font-size: 0.6rem;
+            }
+            .target-display {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-area">
+        <h1 class="header-text text-xl sm:text-2xl">Color Match!</h1>
+
+        <div class="status-panel">
+            <span id="score">SCORE: 0</span>
+            <span id="time">TIME: 60s</span>
+        </div>
+
+        <div id="targetDisplay" class="target-display text-lg">
+            Ready to Play!
+        </div>
+
+        <div id="tileGrid" class="tile-grid">
+            <!-- Tiles will be generated here -->
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div id="modalOverlay" class="modal-overlay" style="display: flex;">
+        <div id="modalContent" class="modal-content">
+            <h2 class="text-xl sm:text-2xl mb-4">Color Match!</h2>
+            <p class="text-sm sm:text-base mb-6 font-sans">
+                Click the tile that matches the color name shown above!
+                The time to change the tiles will decrease as your score increases.
+            </p>
+            <button id="startButton" class="modal-btn">START GAME</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- Game Setup ---
+        const GRID_SIZE = 9; // 3x3 grid
+        const COLORS = {
+            'RED': '#ff0000',
+            'BLUE': '#0000ff',
+            'GREEN': '#00ff00',
+            'YELLOW': '#ffff00',
+            'MAGENTA': '#ff00ff',
+            'CYAN': '#00ffff',
+            'ORANGE': '#ffaa00',
+            'LIME': '#bfff00',
+            'VIOLET': '#aa00ff'
+        };
+        const COLOR_NAMES = Object.keys(COLORS);
+
+        let score = 0;
+        let timeLeft = 60;
+        let gameInterval = null;
+        let colorUpdateTimeout = null;
+        let currentTargetColor = '';
+        let baseUpdateSpeed = 1500; // ms
+
+        // DOM Elements
+        const tileGrid = document.getElementById('tileGrid');
+        const scoreElement = document.getElementById('score');
+        const timeElement = document.getElementById('time');
+        const targetDisplay = document.getElementById('targetDisplay');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalContent = document.getElementById('modalContent');
+        const startButton = document.getElementById('startButton');
+
+        // --- Core Functions ---
+
+        /**
+         * Shuffles an array in place using the Fisher-Yates algorithm.
+         * @param {Array} a The array to shuffle.
+         */
+        function shuffleArray(a) {
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        /**
+         * Renders the game tiles and sets up click listeners.
+         */
+        function renderTiles() {
+            tileGrid.innerHTML = '';
+            for (let i = 0; i < GRID_SIZE; i++) {
+                const tile = document.createElement('div');
+                tile.classList.add('tile');
+                tile.dataset.id = i;
+                tile.addEventListener('click', handleTileClick);
+                tileGrid.appendChild(tile);
+            }
+        }
+
+        /**
+         * Updates the colors of the tiles and sets the new target.
+         */
+        function updateColors() {
+            // 1. Get a shuffled list of the 9 colors
+            const shuffledColors = shuffleArray([...COLOR_NAMES]);
+
+            // 2. Set the color of each tile
+            const tiles = tileGrid.querySelectorAll('.tile');
+            tiles.forEach((tile, index) => {
+                const colorName = shuffledColors[index];
+                tile.style.backgroundColor = COLORS[colorName];
+                tile.dataset.color = colorName;
+            });
+
+            // 3. Select a new random target from the available colors
+            const newTargetColor = shuffledColors[Math.floor(Math.random() * shuffledColors.length)];
+            currentTargetColor = newTargetColor;
+
+            // 4. Update the target display (text color should be random for added difficulty)
+            targetDisplay.innerHTML = `CLICK THE <span style="color: ${COLORS[newTargetColor]};">${newTargetColor}</span> TILE!`;
+            targetDisplay.style.color = '#fff'; // Reset text color to white
+
+            // 5. Calculate the next update delay (gets faster as score increases)
+            const speedFactor = Math.floor(score / 5); // Speed increases every 5 points
+            const delay = Math.max(500, baseUpdateSpeed - (speedFactor * 75)); // Min delay of 500ms
+
+            // 6. Set the next update
+            colorUpdateTimeout = setTimeout(updateColors, delay);
+        }
+
+        /**
+         * Handles the click event on a tile.
+         * @param {MouseEvent} event
+         */
+        function handleTileClick(event) {
+            if (!gameInterval) return; // Ignore clicks if game is not running
+
+            const clickedTile = event.target;
+            const clickedColor = clickedTile.dataset.color;
+
+            if (clickedColor === currentTargetColor) {
+                // Correct Click
+                score++;
+                scoreElement.textContent = `SCORE: ${score}`;
+                clickedTile.style.transform = 'scale(0.9)';
+                clickedTile.style.opacity = '0.5';
+                setTimeout(() => {
+                    clickedTile.style.transform = 'scale(1.0)';
+                    clickedTile.style.opacity = '1.0';
+                }, 100);
+
+                // Clear and immediately update colors for a new target
+                clearTimeout(colorUpdateTimeout);
+                updateColors();
+            } else {
+                // Wrong Click: Penalty
+                timeLeft = Math.max(0, timeLeft - 2); // Lose 2 seconds
+                timeElement.textContent = `TIME: ${timeLeft}s`;
+                targetDisplay.innerHTML = 'INCORRECT! -2s';
+                targetDisplay.style.color = '#ff0000';
+                setTimeout(() => {
+                     // Restore the target text after a brief pause
+                    targetDisplay.innerHTML = `CLICK THE <span style="color: ${COLORS[currentTargetColor]};">${currentTargetColor}</span> TILE!`;
+                    targetDisplay.style.color = '#fff';
+                }, 400);
+            }
+        }
+
+        /**
+         * Starts the main game timer.
+         */
+        function startGameTimer() {
+            gameInterval = setInterval(() => {
+                timeLeft--;
+                timeElement.textContent = `TIME: ${timeLeft}s`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(gameInterval);
+                    clearTimeout(colorUpdateTimeout);
+                    gameOver(true);
+                }
+            }, 1000);
+        }
+
+        /**
+         * Resets and starts the game.
+         */
+        function startGame() {
+            modalOverlay.style.display = 'none';
+
+            // Reset state
+            score = 0;
+            timeLeft = 60;
+            scoreElement.textContent = `SCORE: 0`;
+            timeElement.textContent = `TIME: ${timeLeft}s`;
+
+            // Start timers
+            startGameTimer();
+            updateColors();
+        }
+
+        /**
+         * Displays the game over screen.
+         * @param {boolean} isTimeUp
+         */
+        function gameOver(isTimeUp) {
+            targetDisplay.textContent = 'Game Over!';
+
+            const title = isTimeUp ? "TIME'S UP!" : "GAME OVER";
+            const message = `You scored an impressive ${score} points!`;
+
+            modalContent.innerHTML = `
+                <h2 class="text-xl sm:text-2xl mb-4 header-text">${title}</h2>
+                <p class="text-sm sm:text-base mb-6 font-sans">${message}</p>
+                <button id="restartButton" class="modal-btn">PLAY AGAIN</button>
+            `;
+            document.getElementById('restartButton').addEventListener('click', startGame);
+
+            modalOverlay.style.display = 'flex';
+        }
+
+        // --- Initialization ---
+
+        // Render tiles on load
+        renderTiles();
+
+        // Attach start button listener
+        startButton.addEventListener('click', startGame);
+
+    </script>
+
+</body>
+</html>
